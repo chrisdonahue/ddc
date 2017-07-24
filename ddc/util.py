@@ -1,4 +1,5 @@
 import os
+import pkg_resources
 
 def ezname(x):
     x = ''.join(x.strip().split())
@@ -14,3 +15,8 @@ def dot_dot_fp(fp, nup=1):
     for i in xrange(nup):
         fp = os.path.split(fp)[0]
     return fp
+
+def resource_fp(name):
+    resource_package = __name__
+    resource_path = '/'.join(['resources', name])
+    return pkg_resources.resource_filename(resource_package, resource_path)
