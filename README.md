@@ -31,3 +31,16 @@ You can generate an audio preview of any chart to verify timing and alignment ag
 mkdir previews
 python -m dataset.preview_wav ${DDCDIR}/out/Fraxtil/TsunamixIII/TsunamixIII_HotPursuit_Remix_.filt.json ${DDCDIR}/previews/TsunamixIII_HotPursuit_Remix_.wav
 ```
+
+## Attribution
+If you use this dataset in your research, cite via the following BibTex:
+
+```
+@inproceedings{donahue2017dance,
+  title={Dance Dance Convolution},
+  author={Donahue, Chris and Lipton, Zachary C and McAuley, Julian},
+  booktitle={Proceedings of the 34th International Conference on Machine Learning},
+  year={2017},
+}
+```
+
