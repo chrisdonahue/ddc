@@ -26,13 +26,13 @@ def _linterp(val_start, pts, env_len):
         val_curr = pt_val
     return np.concatenate(env)
 
-def write_preview_wav(wav_fp, measure_beat_time_steps, wav_fs=11025.0):
-    wav_len = int(wav_fs * (measure_beat_time_steps[-1][2] + 0.05))
+def write_preview_wav(wav_fp, note_beats_and_abs_times, wav_fs=11025.0):
+    wav_len = int(wav_fs * (note_beats_and_abs_times[-1][1] + 0.05))
     dt = 1.0 / wav_fs
 
     note_type_to_idx = {}
     idx = 0
-    for _, beat, time, note_type in measure_beat_time_steps:
+    for _, beat, time, note_type in note_beats_and_abs_times:
         if note_type == '0' * len(note_type):
             continue
         if note_type not in note_type_to_idx:
@@ -42,7 +42,7 @@ def write_preview_wav(wav_fp, measure_beat_time_steps, wav_fs=11025.0):
 
     pulse_f = np.zeros((num_note_types, wav_len))
 
-    for _, beat, time, note_type in measure_beat_time_steps:
+    for _, beat, time, note_type in note_beats_and_abs_times:
         sample = int(time * wav_fs)
         if sample > 0 and sample < wav_len and note_type in note_type_to_idx:
             pulse_f[note_type_to_idx[note_type]][sample] = 1.0
@@ -65,20 +65,15 @@ def write_preview_wav(wav_fp, measure_beat_time_steps, wav_fs=11025.0):
     _wav_write(wav_fp, wav_fs, metro_f, normalize=True)
 
 if __name__ == '__main__':
-    import argparse
     import json
     import sys
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('json_fp', type=str, help='DDC JSON file to render')
-    parser.add_argument('wav_fp', type=str, help='Output .wav filepath')
-
-    args = parser.parse_args()
-
-    with open(args.json_fp, 'r') as f:
+    json_fp, wav_fp = sys.argv[1:3]
+    
+    with open(json_fp, 'r') as f:
         meta = json.loads(f.read())
 
     for i, chart in enumerate(meta['charts']):
         print '{}: {} {} {}'.format(i, chart['type'], chart['difficulty_fine'], chart['desc_or_author'])
     chart_idx = int(raw_input('Which chart? '))
-    write_preview_wav(args.wav_fp, meta['charts'][chart_idx]['notes'])
+    write_preview_wav(wav_fp, meta['charts'][chart_idx]['notes'])
