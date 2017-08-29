@@ -1,9 +1,8 @@
 source sml_0_push.sh
 
-TRAIN_DIR=${SM_DIR}/trained/ngram/17_02_10_trained
+TRAIN_DIR=/tmp/ngram
 rm -rf ${TRAIN_DIR}
 mkdir -p ${TRAIN_DIR}
-git rev-parse HEAD > ${TRAIN_DIR}/gitsha.txt
 
 python ngram.py \
 	${SM_DIR}/data/json_filt/${1}_train.txt \

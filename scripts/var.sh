@@ -1,2 +1,2 @@
-SM_DIR=~/ddc/reproducability
+SM_DIR=~/ddc
 SMDATA_DIR=${SM_DIR}/data

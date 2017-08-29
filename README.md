@@ -36,8 +36,8 @@ If you use this dataset in your research, cite via the following BibTex:
 
 # Building dataset
 
-1. Make a directory named `data` under `~/ddc/reproducability` (or change `scripts/var.sh` to point to a different directory)
-1. Under `data`, make directories `raw` and `json_filt`
+1. Make a directory named `data` under `~/ddc` (or change `scripts/var.sh` to point to a different directory)
+1. Under `data`, make directories `raw`, `json_raw` and `json_filt`
 1. Under `data/raw`, make directories `fraxtil` and `itg`
 1. Under `data/raw/fraxil`, download and unzip:
     * [(Fraxtil) Tsunamix III](https://fra.xtil.net/simfiles/data/tsunamix/III/Tsunamix%20III%20[SM5].zip)
@@ -59,3 +59,4 @@ If you use this dataset in your research, cite via the following BibTex:
 1. Generate chart `.pkl` files (this may take a while): `./all.sh ./sml_onset_1_chart.sh`
 1. Train a step placement (onset detection) model on a dataset: `./sml_onset_2_train.sh fraxtil`
 1. Train a step selection (symbolic) model on a dataset: `./sml_sym_2_train.sh fraxtil`
+1. Train and evaluate a Laplace-smoothed 5gram model on a dataset: `./sml_sym_2_mark.sh fraxtil 5`
