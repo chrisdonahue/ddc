@@ -1,8 +1,8 @@
 # Dance Dance Convolution
 
-Dataset for [Dance Dance Convolution](https://arxiv.org/abs/1703.06891).
+Dataset and training code for [Dance Dance Convolution](https://arxiv.org/abs/1703.06891).
 
-This repository will eventually contain Tensorflow code for models from the paper. For now, it only has code for creating the dataset from separately-hosted ZIP files.
+*IMPORTANT*: Code to reproduce the paper results can be found under `reproducability`. Everything above that directory is an effort to refactor that code.
 
 ## Usage
 
@@ -43,4 +43,3 @@ If you use this dataset in your research, cite via the following BibTex:
   year={2017},
 }
 ```
-
