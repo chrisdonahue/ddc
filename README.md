@@ -1,10 +1,16 @@
 # Dance Dance Convolution
 
-This directory contains the code used to produce the dataset and results in the [Dance Dance Convolution paper](https://arxiv.org/abs/1703.06891). You can find a live demo of our system [here](http://deepx.ucsd.edu/ddc) as well as an example [video](https://www.youtube.com/watch?v=yUc3O237p9M).
+Dance Dance Convolution is an automatic choreography system for Dance Dance Revolution (DDR), converting raw audio into playable dances.
+
+<p align="center">
+    <img src="docs/fig1.png" width="650px"/>
+</p>
+
+This repository contains the code used to produce the dataset and results in the [Dance Dance Convolution paper](https://arxiv.org/abs/1703.06891). You can find a live demo of our system [here](http://deepx.ucsd.edu/ddc) as well as an example [video](https://www.youtube.com/watch?v=yUc3O237p9M).
 
 The `Fraxtil` and `In The Groove` datasets from the paper are amalgamations of three and two StepMania "packs" respectively. Instructions for downloading these packs and building the datasets can be found below.
 
-We are in the process of reimplementing this code (under branch `master_v2`), primarily to add on-the-fly feature extraction and remove the essentia dependency. However, you can get started with this if you are eager to dance.
+We are in the process of reimplementing this code (under branch `master_v2`), primarily to add on-the-fly feature extraction and remove the essentia dependency. However, you can get started with `master` if you are eager to dance.
 
 Please email me with any issues: cdonahue \[@at@\] ucsd \(.dot.\) edu
 
