@@ -1,6 +1,6 @@
 # Dance Dance Convolution
 
-This directory contains the code used to produce the dataset and results in the [Dance Dance Convolution paper](https://arxiv.org/abs/1703.06891). You can find a live demo of our system [here](http://deepx.ucsd.edu/ddc) as well as an example [video](https://www.youtube.com/watch?v=yUc3O237p9M).
+This directory contains the code used to produce the dataset and results in the [Dance Dance Convolution paper](https://arxiv.org/abs/1703.06891). You can find a live demo of our system [here](http://deepx.ucsd.edu/ddc) as well as an example [video](https://www.youtube.com/watch?v=yUc3O237p9M). If you would like to run our demo locally, see the relevant section below.
 
 The `Fraxtil` and `In The Groove` datasets from the paper are amalgamations of three and two StepMania "packs" respectively. Instructions for downloading these packs and building the datasets can be found below.
 
@@ -31,8 +31,17 @@ If you use this dataset in your research, cite via the following BibTex:
 # Directory description
 
 * `dataset/`: code to generate the dataset from StepMania files
+* `infer/`: code to run [demo](http://deepx.ucsd.edu/ddc) locally
 * `learn/`: code to train step placement (onset) and selection (sym) models
 * `scripts/`: shell scripts to build the dataset (`smd_*`) and train (`sml_*`)
+
+# Running demo locally
+
+The demo (unfortunately) requires tensorflow 0.12.1 and essentia. `virtualenv` recommended
+
+1. Install [tensorflow 0.12.1](https://www.tensorflow.org/versions/r0.12/get_started/os_setup)
+1. Run server: `./ddc_server.sh`
+1. Send server choreography requests: `python ddc_client.py $ARTIST_NAME $SONG_TITLE $FILEPATH`
 
 # Building dataset
 
