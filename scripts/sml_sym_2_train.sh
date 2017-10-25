@@ -13,6 +13,7 @@ python sym_train.py \
         --sym_narrowclasses=4 \
         --sym_embedding_size=0 \
         --feat_time_diff \
+        --feat_time_diff_next \
         --batch_size=64 \
         --nunroll=64 \
         --cnn_filter_shapes= \
