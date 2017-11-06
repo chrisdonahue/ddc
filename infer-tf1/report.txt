@@ -1,0 +1,26 @@
+--------------------------------------------------------------------------------
+Processing file 'ddc_server.py'
+ outputting to 'ddc_server_tf1.py'
+--------------------------------------------------------------------------------
+
+'ddc_server.py' Line 83
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.all_variables' to 'tf.global_variables'
+
+    Old:     model_ss_vars = filter(lambda v: 'model_ss' in v.name, tf.all_variables())
+                                                                    ~~~~~~~~~~~~~~~~    
+    New:     model_ss_vars = filter(lambda v: 'model_ss' in v.name, tf.global_variables())
+                                                                    ~~~~~~~~~~~~~~~~~~~    
+
+'ddc_server.py' Line 46
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.all_variables' to 'tf.global_variables'
+
+    Old:     model_sp_vars = filter(lambda v: 'model_sp' in v.name, tf.all_variables())
+                                                                    ~~~~~~~~~~~~~~~~    
+    New:     model_sp_vars = filter(lambda v: 'model_sp' in v.name, tf.global_variables())
+                                                                    ~~~~~~~~~~~~~~~~~~~    
+
+
