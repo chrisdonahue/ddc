@@ -91,13 +91,32 @@ def notes_parser(x):
     if not len(measure) in VALID_PULSES:
       parlog.warning('Nonstandard subdivision {} detected, allowing'.format(len(measure)))
 
+  chart_type_to_id = {
+      'dance-single': 0,
+      'dance-double': 1,
+      'dance-couple': 2,
+      'lights-cabinet': 3
+  }
   chart_type = str_parser(notes_split[0])
-  if chart_type not in ['dance-single', 'dance-double', 'dance-couple', 'lights-cabinet']:
+  if chart_type not in chart_type_to_id:
     raise ValueError('Nonstandard chart type {} detected'.format(chart_type))
+  chart_type = chart_type_to_id[chart_type]
 
-  return (str_parser(notes_split[0]),
+  chart_diff_to_id = {
+      'Beginner': 0,
+      'Easy': 1,
+      'Medium': 2,
+      'Hard': 3,
+      'Challenge': 4
+  }
+  chart_diff = str_parsers(notes_split[2])
+  if chart_diff not in chart_diff_to_id:
+    raise ValueError('Nonstandard chart difficulty {} detected'.format(chart_diff))
+  chart_diff = chart_diff_to_id[chart_diff]
+
+  return (chart_type,
     str_parser(notes_split[1]),
-    str_parser(notes_split[2]),
+    chart_diff,
     int_parser(notes_split[3]),
     list_parser(float_parser)(notes_split[4]),
     measures_clean

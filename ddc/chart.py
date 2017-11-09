@@ -5,15 +5,16 @@ from ddc import BeatTimeCalc
 
 class Song(object):
   def __init__(self, file_dir, attrs):
-    self.ezpack = attrs['pack_name']
-    self.eztitle = attrs['song_name']
+    self.ezid = attrs['ezid']
+    self.ezpack = attrs['ezpack']
+    self.eztitle = attrs['ezname']
 
     self.artist = attrs['artist']
     self.title = attrs['title']
 
     self.btcalc = BeatTimeCalc(attrs['offset'], attrs['bpms'], attrs['stops'])
 
-    self.audio_fp = os.path.join(file_dir, attrs['music_fp'])
+    self.audio_fp = os.path.join(file_dir, attrs['audio_fp'])
 
     self.charts_raw = attrs['charts']
     self.charts = None
@@ -35,12 +36,12 @@ class Chart(object):
   def __init__(self, song, chart_attrs):
     self.song = song
 
-    self.difficulty = chart_attrs['difficulty_coarse']
-    self.difficulty_fine = chart_attrs['difficulty_fine']
     self.type = chart_attrs['type']
-    self.stepper = chart_attrs['desc_or_author']
+    self.stepper = chart_attrs['stepper']
+    self.difficulty = chart_attrs['difficulty']
+    self.difficulty_fine = chart_attrs['difficulty_fine']
 
-    self.steps = chart_attrs['notes']
+    self.steps = chart_attrs['steps']
 
   def get_difficulty():
     return self.difficulty

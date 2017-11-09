@@ -116,11 +116,11 @@ def parse_pack(pack_dir, out_dir,
 
     # Build ordered JSON output dict
     out_json = OrderedDict([
-      ('identifier', identifier),
-      ('pack_name', pack_ezname),
-      ('song_name', song_ezname),
+      ('ezid', identifier),
+      ('ezpack', pack_ezname),
+      ('ezname', song_ezname),
       ('sm_fp', sm_out_name),
-      ('music_fp', music_out_name),
+      ('audio_fp', music_out_name),
       ('title', sm_attrs.get('title')),
       ('artist', sm_attrs.get('artist')),
       ('offset', offset),
@@ -143,10 +143,10 @@ def parse_pack(pack_dir, out_dir,
 
       notes = {
         'type': sm_notes[0],
-        'desc_or_author': sm_notes[1],
-        'difficulty_coarse': sm_notes[2],
+        'stepper': sm_notes[1],
+        'difficulty': sm_notes[2],
         'difficulty_fine': sm_notes[3],
-        'notes': measure_beat_time_steps,
+        'steps': measure_beat_time_steps,
       }
       out_json['charts'].append(notes)
 
