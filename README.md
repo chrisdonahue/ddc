@@ -1,36 +1,18 @@
 # Dance Dance Convolution
 
-Dataset and training code for [Dance Dance Convolution](https://arxiv.org/abs/1703.06891).
+Dance Dance Convolution is an automatic choreography system for Dance Dance Revolution (DDR), converting raw audio into playable dances.
 
-*IMPORTANT*: Code to reproduce the paper results can be found under `reproducability`. Everything above that directory is an effort to refactor that code.
+<p align="center">
+    <img src="docs/fig1.png" width="650px"/>
+</p>
 
-## Usage
+This repository contains the code used to produce the dataset and results in the [Dance Dance Convolution paper](https://arxiv.org/abs/1703.06891). You can find a live demo of our system [here](http://deepx.ucsd.edu/ddc) as well as an example [video](https://www.youtube.com/watch?v=yUc3O237p9M).
 
-To generate a JSON version of the dataset, download any of the following packs to a directory:
+The `Fraxtil` and `In The Groove` datasets from the paper are amalgamations of three and two StepMania "packs" respectively. Instructions for downloading these packs and building the datasets can be found below.
 
-* [(Fraxtil) Tsunamix III](https://fra.xtil.net/simfiles/data/tsunamix/III/Tsunamix%20III%20[SM5].zip)
-* [(Fraxtil) Fraxtil's Arrow Arrangements](https://fra.xtil.net/simfiles/data/arrowarrangements/Fraxtil's%20Arrow%20Arrangements%20[SM5].zip)
-* [(Fraxtil) Fraxtil's Beast Beats](https://fra.xtil.net/simfiles/data/beastbeats/Fraxtil's%20Beast%20Beats%20[SM5].zip)
-* [(ITG) In The Groove](http://stepmaniaonline.net/downloads/packs/In%20The%20Groove%201.zip)
-* [(ITG) In The Groove 2](http://stepmaniaonline.net/downloads/packs/In%20The%20Groove%202.zip)
+This is a streamlined version of the legacy code used to produce our paper (which uses outdated libraries). The legacy code is available at `master_v1` for reproducability.
 
-The following script will generate the entire dataset used in the paper:
-
-```sh
-export DDCDIR=~/ddc
-cd ${DDCDIR}
-mkdir out
-python -m dataset.extract ${DDCDIR}/out ${DDCDIR}/packs/*.zip
-python -m dataset.split ${DDCDIR}/out
-python -m dataset.filter ${DDCDIR}/out/*.txt
-```
-
-You can generate an audio preview of any chart to verify timing and alignment against the song. Run the following script then open both the song and chart preview wav in audacity:
-
-```sh
-mkdir previews
-python -m dataset.preview_wav ${DDCDIR}/out/Fraxtil/TsunamixIII/TsunamixIII_HotPursuit_Remix_.filt.json ${DDCDIR}/previews/TsunamixIII_HotPursuit_Remix_.wav
-```
+Please email me with any issues: cdonahue \[@at@\] ucsd \(.dot.\) edu
 
 ## Attribution
 If you use this dataset in your research, cite via the following BibTex:
@@ -43,3 +25,32 @@ If you use this dataset in your research, cite via the following BibTex:
   year={2017},
 }
 ```
+
+# Requirements
+
+* tensorflow >1.0
+* numpy
+* tqdm
+* scipy
+
+# Directory description
+
+* `ddc/`: Core library with dataset extraction and training code
+* `scripts/`: shell scripts to build the dataset (`smd_*`) and train (`sml_*`)
+
+# Building dataset
+
+1. `$ git clone git@github.com:chrisdonahue/ddc.git`
+1. `cd ddc`
+1. `$ sudo pip install -e .` (installs as editable library)
+1. `$ export SM_DATA_DIR=~/ddc/data` (or another directory of your choosing)
+1. `$ mkdir $SM_DATA_DIR`
+1. `$ cd $SM_DATA_DIR`
+1. Download game data
+    * [(Fraxtil) Tsunamix III](https://fra.xtil.net/simfiles/data/tsunamix/III/Tsunamix%20III%20[SM5].zip)
+    * [(Fraxtil) Fraxtil's Arrow Arrangements](https://fra.xtil.net/simfiles/data/arrowarrangements/Fraxtil's%20Arrow%20Arrangements%20[SM5].zip)
+    * [(Fraxtil) Fraxtil's Beast Beats](https://fra.xtil.net/simfiles/data/beastbeats/Fraxtil's%20Beast%20Beats%20[SM5].zip)
+    * [(ITG) In The Groove](http://stepmaniaonline.net/downloads/packs/In%20The%20Groove%201.zip)
+    * [(ITG) In The Groove 2](http://stepmaniaonline.net/downloads/packs/In%20The%20Groove%202.zip)
+1. `cd ~/ddc/scripts`
+1. `./smd.sh` (extracts dataset)
