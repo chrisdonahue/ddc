@@ -7,11 +7,12 @@ import tensorflow as tf
 # output shape: [?, nch] (samples)
 def load_audio_file(audio_fp, file_format='ogg', fs=44100, nch=2):
   audio_bin = tf.read_file(audio_fp)
-  samples = tf.contrib.ffmpeg(
-      song_binary,
+  samples = tf.contrib.ffmpeg.decode_audio(
+      audio_bin,
       file_format=file_format,
       samples_per_second=fs,
       channel_count=nch)
+  samples.set_shape([None, nch])
   return samples
 
 
@@ -34,7 +35,7 @@ def extract_feats(x, feats_type='lmel80', nfft=1024, nhop=512, dtype=tf.float32)
     feats = tf.contrib.signal.frame(x, nfft, nhop, pad_end=True)
   else:
     X = tf.contrib.signal.stft(x, nfft, nhop, pad_end=True)
-    X_mag = tf.abs(stft)
+    X_mag = tf.abs(X)
 
     if feats_type == 'spectra':
       feats = X_mag

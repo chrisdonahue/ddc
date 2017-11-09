@@ -19,8 +19,7 @@ def load_examples(
   for chart in charts:
     audio_fps.append(chart.get_audio_fp())
 
-    # TODO: handle features (difficulty)
-    feats.append([])
+    feats.append(chart.get_difficulty())
 
     chart_step_frames = chart.get_step_frames(rate)
     chart_step_frames = ','.join([str(f) for f in chart_step_frames])
@@ -30,10 +29,6 @@ def load_examples(
   audio_fps = tf.convert_to_tensor(audio_fps, tf.string)
   feats = tf.convert_to_tensor(feats, tf.int32)
   step_frames = tf.convert_to_tensor(step_frames, tf.string)
-
-  print audio_fps
-  print feats
-  print step_frames
 
   # Limit number of epochs
   # https://github.com/tensorflow/tensorflow/blob/r1.2/tensorflow/python/training/input.py
@@ -57,13 +52,13 @@ def load_examples(
 
   # Extract feats
   # TODO: tf.cond on file extension for decode_audio
-  song_samples = tf.squeeze(load_audio_file(audio_fp, nch=1))
-  """
+  song_samples = tf.squeeze(load_audio_file(audio_fp, nch=1), axis=1)
   song_feats = []
   for nfft in [1024, 2048, 4096]:
-    song_feats.append(extract_feats(song_samples, 'lmel80', nfft=nfft, nhop=441))
-  song_feats = tf.stack([feats_1024, feats_2048, feats_4096], axis=2)
-  """
+    feats = extract_feats(song_samples, 'lmel80', nfft=nfft, nhop=441)
+    song_feats.append(feats)
+  song_feats = tf.stack(song_feats, axis=2)
+  print song_feats.get_shape()
 
   # Convert CSV step frames to integer
   chart_step_frames_split = tf.string_split([chart_step_frames], ',')

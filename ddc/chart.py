@@ -43,7 +43,7 @@ class Chart(object):
 
     self.steps = chart_attrs['steps']
 
-  def get_difficulty():
+  def get_difficulty(self):
     return self.difficulty
 
 
