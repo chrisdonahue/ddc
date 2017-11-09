@@ -1,5 +1,6 @@
 import numpy as np
 
+
 _EPSILON = 1e-6
 class BeatTimeCalc(object):
   # for simplicity, we will represent a "stop" as an impossibly sharp tempo change
@@ -56,6 +57,7 @@ class BeatTimeCalc(object):
     self.segment_bps = np.array([bps for _, bps in beat_bps])
     self.segment_spb = 1.0 / self.segment_bps
 
+
   def beat_to_time(self, beat):
     assert beat >= 0.0
     seg_idx = np.searchsorted(self.segment_beat, beat, side='right') - 1
@@ -64,6 +66,7 @@ class BeatTimeCalc(object):
     spb = self.segment_spb[seg_idx]
     return time_left + ((beat - beat_left) * spb)
 
+
   def time_to_beat(self, time):
     assert time >= 0.0
     seg_idx = np.searchsorted(self.segment_time, time, side='right') - 1
@@ -71,4 +74,3 @@ class BeatTimeCalc(object):
     beat_left = self.segment_beat[seg_idx]
     bps = self.segment_bps[seg_idx]
     return beat_left + ((time - time_left) * bps)
-
