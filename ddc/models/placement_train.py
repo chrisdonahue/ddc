@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from ddc.feats import extract_feats
+from ddc.tf_feats import load_audio_file, extract_feats
 
 def load_examples(
         charts,
@@ -44,10 +44,15 @@ def load_examples(
     # Dequeue single tuple example
     audio_fp, feat, chart_step_frames = chart_queue.dequeue()
 
+    # Extract feats
     # TODO: tf.cond on file extension for decode_audio
-    song_binary = tf.read_file(audio_fp)
-    song_samples = tf.contrib.ffmpeg.decode_audio(song_binary, file_format='ogg', samples_per_second=44100, channel_count=1)
-    song_samples = tf.squeeze(song_samples, axis=1)
+    song_samples = tf.squeeze(load_audio_file(audio_fp, nch=1))
+    """
+    song_feats = []
+    for nfft in [1024, 2048, 4096]:
+        song_feats.append(extract_feats(song_samples, 'lmel80', nfft=nfft, nhop=441))
+    song_feats = tf.stack([feats_1024, feats_2048, feats_4096], axis=2)
+    """
 
     # Convert CSV step frames to integer
     chart_step_frames_split = tf.string_split([chart_step_frames], ',')
@@ -65,14 +70,6 @@ def load_examples(
         chart_debug_y = tf.zeros([first_step_sample - last_step_sample + 1], tf.float32)
         chart_debug_y[chart_step_frames * 441 - first_step_sample] = 1.
     chart_debug_y = chart_step_frames
-
-    # Extract feats
-    """
-    song_feats = []
-    for nfft in [1024, 2048, 4096]:
-        song_feats.append(extract_feats(song_samples, 'lmel80', nfft=nfft, nhop=441))
-    song_feats = tf.stack([feats_1024, feats_2048, feats_4096], axis=2)
-    """
 
     # Trim feats
     chart_x = song_samples#song_samples[first_step_frame * 441:last_step_frame * 441 + 1]

@@ -5,9 +5,8 @@ import tensorflow as tf
 
 # input shape: [] (placeholder tf.string)
 # output shape: [?, nch] (samples)
-def load_audio_file(audio_fp, fs=44100, nch=2):
+def load_audio_file(audio_fp, file_format='ogg', fs=44100, nch=2):
   audio_bin = tf.read_file(audio_fp)
-  file_format = os.path.splitext(audio_fp)[1][1:]
   samples = tf.contrib.ffmpeg(
       song_binary,
       file_format=file_format,
@@ -25,6 +24,10 @@ def extract_feats(x, feats_type='lmel80', nfft=1024, nhop=512, dtype=tf.float32)
   ]
   with tf.control_dependencies(assertions):
     x = tf.identity(x)
+
+  # Center FFT on first sample
+  pad = tf.zeros([nfft // 2], dtype)
+  x = tf.concat([pad, x], axis=0)
 
   # Can't use dynamic shape here because tf.cond runs both branches
   if feats_type == 'raw':
