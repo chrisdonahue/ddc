@@ -5,9 +5,13 @@ from ddc.tf_feats import load_audio_file, extract_feats
 def load_examples(
     songs,
     batch_size,
-    rate=100.0,
+    rate=100.,
     num_epochs=None,
     feat_type='lmel80'):
+  charts = []
+  for song in songs:
+    charts.extend(song.get_placement_charts())
+  
   # Aggregate constants from charts
   audio_fps = []
   feats = []
@@ -15,6 +19,7 @@ def load_examples(
   for chart in charts:
     audio_fps.append(chart.get_audio_fp())
     feats.append(chart.get_feats())
+    print feats
     chart_step_frames = chart.get_step_frames(rate)
     chart_step_frames = ','.join([str(f) for f in chart_step_frames])
     step_frames.append(chart_step_frames)
@@ -125,7 +130,9 @@ if __name__ == '__main__':
       with open(json_fp, 'r') as j:
         song_json = json.loads(j.read())
 
-      song = Song(dataset_dir, song_json)
+      file_dir = os.path.split(json_fp)[0]
+
+      song = Song(file_dir, song_json)
       songs.append(song)
 
   train(args, songs)
