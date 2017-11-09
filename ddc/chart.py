@@ -55,14 +55,5 @@ class PlacementChart(Chart):
     return self.song.get_audio_fp()
 
 
-  def get_feats(self,
-      difficulty=True):
-    feats = {}
-    if difficulty:
-      feats['difficulty'] = self.difficulty
-
-    return feats
-
-
   def get_step_frames(self, rate):
     return [int(round(t * rate)) for _, _, t, _ in self.steps]

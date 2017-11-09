@@ -18,8 +18,10 @@ def load_examples(
   step_frames = []
   for chart in charts:
     audio_fps.append(chart.get_audio_fp())
-    feats.append(chart.get_feats())
-    print feats
+
+    # TODO: handle features (difficulty)
+    feats.append([])
+
     chart_step_frames = chart.get_step_frames(rate)
     chart_step_frames = ','.join([str(f) for f in chart_step_frames])
     step_frames.append(chart_step_frames)
@@ -28,6 +30,10 @@ def load_examples(
   audio_fps = tf.convert_to_tensor(audio_fps, tf.string)
   feats = tf.convert_to_tensor(feats, tf.int32)
   step_frames = tf.convert_to_tensor(step_frames, tf.string)
+
+  print audio_fps
+  print feats
+  print step_frames
 
   # Limit number of epochs
   # https://github.com/tensorflow/tensorflow/blob/r1.2/tensorflow/python/training/input.py

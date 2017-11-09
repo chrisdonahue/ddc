@@ -21,7 +21,6 @@ if __name__ == '__main__':
   parser.add_argument('--keep_empty', dest='keep_empty', action='store_true', help='If set, JSON for songs with all charts filtered will be preserved')
   parser.add_argument('--reduce_ppms', dest='reduce_ppms', action='store_true', help='If set, pulse per measure will be filtered if it was previously overspecified')
   parser.add_argument('--ppms', type=str, help='CSV whitelist of allowable pulses per measure; if empty, no filter')
-  parser.add_argument('--permutations', type=str, help='List of permutations to include in output')
 
   parser.set_defaults(
     json_ext_in='.raw.json',
@@ -36,8 +35,7 @@ if __name__ == '__main__':
     remove_zeros=True,
     keep_empty=False,
     reduce_ppms=False,
-    ppms='',
-    permutations='0123')
+    ppms='')
 
   args = parser.parse_args()
 
@@ -50,7 +48,6 @@ if __name__ == '__main__':
   arrow_types = set(filter(lambda x: bool(x), [x.strip() for x in args.arrow_types.split(',')]))
   arrow_types.add('0')
   ppms = set([int(x.strip()) for x in filter(lambda x: bool(x), args.ppms.split(','))])
-  permutations = set([x.strip() for x in filter(lambda x: bool(x), args.permutations.split(','))])
 
   if len(chart_types) > 0:
     print 'Only accepting the following chart types: {}'.format(chart_types)
@@ -192,19 +189,10 @@ if __name__ == '__main__':
           if not acceptable:
             continue
 
-        for permutation in permutations:
-          chart_meta_copy = copy.deepcopy(chart_meta)
-          notes_cleaned = []
-          for meas, beat, time, note in chart_meta_copy['notes']:
-            note_new = ''.join([note[int(permutation[i])] for i in xrange(len(permutation))])
-
-            notes_cleaned.append((meas, beat, time, note_new))
-            chart_meta_copy['notes'] = notes_cleaned
-
-          charts_accepted.append(chart_meta_copy)
+        charts_accepted.append(chart_meta)
 
       charts_naccepted = len(charts_accepted)
-      charts_ntotal = len(song_meta['charts']) * len(permutations)
+      charts_ntotal = len(song_meta['charts'])
       dataset_naccepted += charts_naccepted
       dataset_ntotal += charts_ntotal
       print 'Accepted {}/{}'.format(charts_naccepted, charts_ntotal)
