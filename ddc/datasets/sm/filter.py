@@ -25,8 +25,8 @@ if __name__ == '__main__':
   parser.set_defaults(
     json_ext_in='.raw.json',
     json_ext_out='.filt.json',
-    chart_types='dance-single',
-    chart_difficulties='Beginner,Medium,Easy,Hard,Challenge',
+    chart_types='0',
+    chart_difficulties='0,1,2,3,4',
     min_chart_feet=-1,
     max_chart_feet=-1,
     substitutions='M,0,4,2',
@@ -40,7 +40,9 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   chart_types = set(filter(lambda x: bool(x), [x.strip() for x in args.chart_types.split(',')]))
+  chart_types = [int(x) for x in chart_types]
   chart_difficulties = set(filter(lambda x: bool(x), [x.strip() for x in args.chart_difficulties.split(',')]))
+  chart_difficulties = [int(x) for x in chart_difficulties]
   substitutions = filter(lambda x: bool(x), [x.strip() for x in args.substitutions.split(',')])
   assert len(substitutions) % 2 == 0
   substitutions = [(substitutions[i], substitutions[i + 1]) for i in xrange(0, len(substitutions), 2)]
@@ -94,8 +96,8 @@ if __name__ == '__main__':
           print 'Unacceptable chart type: {}'.format(chart_meta['type'])
           continue
 
-        if len(chart_difficulties) > 0 and chart_meta['difficulty_coarse'] not in chart_difficulties:
-          print 'Unacceptable chart difficulty: {}'.format(chart_meta['difficulty_coarse'])
+        if len(chart_difficulties) > 0 and chart_meta['difficulty'] not in chart_difficulties:
+          print 'Unacceptable chart difficulty: {}'.format(chart_meta['difficulty'])
           continue
 
         if args.min_chart_feet >= 0 and chart_meta['difficulty_fine'] < args.min_chart_feet:
@@ -107,21 +109,21 @@ if __name__ == '__main__':
           continue
 
         if len(substitutions) > 0 or args.remove_zeros:
-          notes_cleaned = []
-          for meas, beat, time, note in chart_meta['notes']:
+          steps_cleaned = []
+          for meas, beat, time, step in chart_meta['steps']:
             for old, new in substitutions.items():
-              note = note.replace(old, new)
+              step = step.replace(old, new)
 
-            if args.remove_zeros and note == '0' * len(note):
+            if args.remove_zeros and step == '0' * len(step):
               continue
 
-            notes_cleaned.append((meas, beat, time, note))
-          chart_meta['notes'] = notes_cleaned
+            steps_cleaned.append((meas, beat, time, step))
+          chart_meta['steps'] = steps_cleaned
 
         if len(arrow_types) > 1:
           bad_types = set()
-          for _, beat, time, note in chart_meta['notes']:
-            for char in note:
+          for _, beat, time, step in chart_meta['steps']:
+            for char in step:
               if char not in arrow_types:
                 bad_types.add(char)
           if len(bad_types) > 0:
@@ -130,13 +132,13 @@ if __name__ == '__main__':
 
         if args.max_jump_size > 0:
           acceptable = True
-          for _, beat, time, note in chart_meta['notes']:
+          for _, beat, time, step in chart_meta['steps']:
             jump_size = 0
-            for char in note:
+            for char in step:
               if char != '0':
                 jump_size += 1
             if jump_size > args.max_jump_size:
-              print 'Unacceptable jump: {}'.format(note)
+              print 'Unacceptable jump: {}'.format(step)
               acceptable = False
               break
           if not acceptable:
@@ -145,18 +147,18 @@ if __name__ == '__main__':
         if args.reduce_ppms:
           import primefac
           measures = {}
-          for note in chart_meta['notes']:
-            measure = note[0][0]
+          for step in chart_meta['steps']:
+            measure = step[0][0]
             if measure not in measures:
               measures[measure] = []
-            measures[measure].append(note)
+            measures[measure].append(step)
           measures = [measures[k] for k, v in sorted(measures.items(), key=lambda x: x[0])]
 
-          notes_cleaned = []
+          steps_cleaned = []
           for measure in measures:
             denominator = measure[0][0][1]
             divisors = list(primefac.primefac(denominator))
-            numerators = [note[0][2] for note in measure]
+            numerators = [step[0][2] for step in measure]
             factor = 1
             for divisor in divisors:
               if reduce(lambda x, y: x and y, [n % divisor == 0 for n in numerators]):
@@ -165,23 +167,23 @@ if __name__ == '__main__':
 
             measure_old = measure
             if factor > 1:
-              measure = [([note[0][0], note[0][1] // factor, note[0][2] // factor], note[1], note[2], note[3]) for note in measure]
+              measure = [([step[0][0], step[0][1] // factor, step[0][2] // factor], step[1], step[2], step[3]) for step in measure]
 
-            for note in measure:
-              notes_cleaned.append(note)
+            for step in measure:
+              steps_cleaned.append(step)
 
           # TODO: remove when stable
-          assert len(notes_cleaned) == len(chart_meta['notes'])
-          for i, ((measure_num, ppm, p), beat, _, _) in enumerate(notes_cleaned):
-            assert notes_cleaned[i][1] == chart_meta['notes'][i][1]
+          assert len(steps_cleaned) == len(chart_meta['steps'])
+          for i, ((measure_num, ppm, p), beat, _, _) in enumerate(steps_cleaned):
+            assert steps_cleaned[i][1] == chart_meta['steps'][i][1]
             beat_recalc = 4.0 * (measure_num + (p / float(ppm)))
             assert abs(beat_recalc - beat) < 1e-6
 
-          chart_meta['notes'] = notes_cleaned
+          chart_meta['steps'] = steps_cleaned
 
         if len(ppms) > 0:
           acceptable = True
-          for (_, ppm, _), _, _, _ in chart_meta['notes']:
+          for (_, ppm, _), _, _, _ in chart_meta['steps']:
             if ppm not in ppms:
               print 'Unacceptable ppm: {}'.format(ppm)
               acceptable = False

@@ -107,9 +107,10 @@ def notes_parser(x):
       'Easy': 1,
       'Medium': 2,
       'Hard': 3,
-      'Challenge': 4
+      'Challenge': 4,
+      'Edit': 5
   }
-  chart_diff = str_parsers(notes_split[2])
+  chart_diff = str_parser(notes_split[2])
   if chart_diff not in chart_diff_to_id:
     raise ValueError('Nonstandard chart difficulty {} detected'.format(chart_diff))
   chart_diff = chart_diff_to_id[chart_diff]

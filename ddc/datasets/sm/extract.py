@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import shutil
+import traceback
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
