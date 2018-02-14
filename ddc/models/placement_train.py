@@ -114,7 +114,7 @@ if __name__ == '__main__':
   io_args.add_argument('--json_ext', type=str)
 
   train_args = parser.add_argument_group('Train')
-  train_args.add_argument('--batch_size', type=str)
+  train_args.add_argument('--batch_size', type=int)
 
   parser.set_defaults(
     json_ext='filt',
