@@ -16,6 +16,22 @@ window.ddc = window.ddc || {};
 
 (function(ddc, AudioContext, tf) {
   const DEBUG = false;
+  const DIFFICULTY_NAME_TO_ID = {
+    BEGINNER: 0,
+    EASY: 1,
+    MEDIUM: 2,
+    HARD: 3,
+    CHALLENGE: 4
+  };
+  const DIFFICULTY_ID_TO_NAME = {
+    0: "BEGINNER",
+    1: "EASY",
+    2: "MEDIUM",
+    3: "HARD",
+    4: "CHALLENGE"
+  };
+
+  ddc.difficulty = DIFFICULTY_NAME_TO_ID;
 
   /* Helper methods */
 
@@ -65,6 +81,7 @@ window.ddc = window.ddc || {};
       monoAudio[i] /= buffer.numberOfChannels;
     }
 
+    // TODO: Return ID3 tags for artist/title if exists
     return monoAudio;
   }
 
@@ -89,6 +106,7 @@ window.ddc = window.ddc || {};
   }
 
   async function featureDispose() {
+    if (featureModelVars === null) return;
     await dispose(featureModelVars);
     featureModelVars = null;
   }
@@ -202,13 +220,14 @@ window.ddc = window.ddc || {};
 
   /* Step placement module maps spectrogram to events */
 
-  const DIFFICULTY = {
-    BEGINNER: 0,
-    EASY: 1,
-    MEDIUM: 2,
-    HARD: 3,
-    CHALLENGE: 4
+  const THRESHOLDS = {
+    BEGINNER: 0.15325437,
+    EASY: 0.23268291,
+    MEDIUM: 0.29456162,
+    HARD: 0.29084727,
+    CHALLENGE: 0.28875697
   };
+  const FEATURE_RATE = 100;
   const FEATURE_CONTEXT_RADIUS = 7;
 
   let placementModelVars = null;
@@ -221,6 +240,7 @@ window.ddc = window.ddc || {};
   }
 
   async function placementDispose() {
+    if (placementModelVars === null) return;
     await dispose(placementModelVars);
     placementModelVars = null;
   }
@@ -326,7 +346,7 @@ window.ddc = window.ddc || {};
     return scores;
   }
 
-  async function findPeaks(scores) {
+  function findPeaks(scores) {
     const peaks = tf.tidy(() => {
       const window = tf.signal.hammingWindow(5);
       let smoothedScores = tf.conv1d(
@@ -350,66 +370,227 @@ window.ddc = window.ddc || {};
     return peaks;
   }
 
+  function thresholdPeaks(peaks, difficulty, threshold) {
+    if (difficulty === undefined && threshold === undefined) {
+      console.log("Must specify difficulty or threshold");
+    }
+    if (difficulty !== undefined) {
+      threshold = THRESHOLDS[DIFFICULTY_ID_TO_NAME[difficulty]];
+    }
+    const thresholded = [];
+    for (let i = 0; i < peaks.length; ++i) {
+      if (peaks[i] >= threshold) {
+        thresholded.push(peaks[i]);
+      }
+    }
+    return thresholded;
+  }
+
+  function peaksToTimestamps(peaks) {
+    const timestamps = [];
+    for (let i = 0; i < peaks.length; ++i) {
+      timestamps.push(peaks[i] / FEATURE_RATE);
+    }
+    return timestamps;
+  }
+
   ddc.stepPlacement = {};
-  ddc.stepPlacement.difficulty = DIFFICULTY;
+  ddc.stepPlacement.thresholds = THRESHOLDS;
   ddc.stepPlacement.initialize = placementInitialize;
   ddc.stepPlacement.dispose = placementDispose;
   ddc.stepPlacement.place = place;
   ddc.stepPlacement.findPeaks = findPeaks;
+  ddc.stepPlacement.thresholdPeaks = thresholdPeaks;
+  ddc.stepPlacement.peaksToTimestamps = peaksToTimestamps;
 
   /* Step selection module maps timestamped events to choreography */
 
+  const VOCAB_NUM_SPECIAL = 1;
+  const VOCAB_NUM_ARROW_DIRECTIONS = 4;
+  const VOCAB_NUM_ARROW_TYPES = 4;
+  const VOCAB_SIZE =
+    VOCAB_NUM_SPECIAL +
+    Math.pow(VOCAB_NUM_ARROW_DIRECTIONS, VOCAB_NUM_ARROW_TYPES);
+  const RNN_NUM_LAYERS = 2;
+  const RNN_CELL_SIZE = 128;
+
   let selectionModelVars = null;
+  let selectionLSTMCells = [];
+  let selectionLSTMForgetBias = null;
 
   async function selectionInitialize(ckptDirUrl) {
     if (selectionModelVars !== null) {
       await selectionDispose();
     }
     selectionModelVars = await retrieveVars(ckptDirUrl);
+    selectionLSTMForgetBias = tf.scalar(1, "float32");
+    for (let i = 0; i < RNN_NUM_LAYERS; ++i) {
+      const layerPrefix = `model_ss/rnn_unroll/MultiRNNCell/Cell${i}/BasicLSTMCell/Linear`;
+      selectionLSTMCells.push((data, c, h) =>
+        tf.basicLSTMCell(
+          selectionLSTMForgetBias,
+          selectionModelVars[`${layerPrefix}/Matrix`],
+          selectionModelVars[`${layerPrefix}/Bias`],
+          data,
+          c,
+          h
+        )
+      );
+    }
   }
 
   async function selectionDispose() {
+    if (selectionModelVars === null) return;
     await dispose(selectionModelVars);
     selectionModelVars = null;
+    selectionLSTMForgetBias.dispose();
   }
 
-  /*
-    this.decLSTMCells = [];
-    this.decForgetBias = tf.scalar(1, 'float32');
-    for (let i = 0; i < this.cfg.RNN_NLAYERS; ++i) {
-      let cellFuseSpec: string;
-      if (this.cfg.RNN_UNFUSED_LEGACY) {
-        cellFuseSpec = 'basic_lstm_cell';
-      } else {
-        cellFuseSpec = 'lstm_cell';
-      }
-
-      let cellPrefix: string;
-      if (this.cfg.RNN_SINGLELAYER_LEGACY) {
-        cellPrefix = `phero_model/decoder/rnn/rnn/multi_rnn_cell/cell_0/${cellFuseSpec}/`;
-      } else {
-        cellPrefix = `phero_model/decoder/rnn/rnn/multi_rnn_cell/cell_${i}/${cellFuseSpec}/`;
-      }
-
-      this.decLSTMCells.push((data: tf.Tensor2D, c: tf.Tensor2D, h: tf.Tensor2D) =>
-        tf.basicLSTMCell(
-          this.decForgetBias,
-          this.modelVars[cellPrefix + 'kernel'] as tf.Tensor2D,
-          this.modelVars[cellPrefix + 'bias'] as tf.Tensor1D,
-          data, c, h
-        ));
+  function createInitialState(batchSize) {
+    if (batchSize === undefined) {
+      batchSize = 1;
     }
-    */
+    const state = { c: [], h: [] };
+    for (let i = 0; i < RNN_NUM_LAYERS; ++i) {
+      state.c.push(tf.zeros([batchSize, RNN_CELL_SIZE], "float32"));
+      state.h.push(tf.zeros([batchSize, RNN_CELL_SIZE], "float32"));
+    }
+    return state;
+  }
 
-  async function select(feats) {
+  function disposeState(state) {
+    for (let i = 0; i < state.c.length; ++i) {
+      state.c[i].dispose();
+      state.h[i].dispose();
+    }
+  }
+
+  function stepToArray(step) {
+    if (step < VOCAB_NUM_SPECIAL || step >= VOCAB_SIZE) {
+      throw new Error("Invalid step");
+    }
+    const s = Number(step - 1)
+      .toString(VOCAB_NUM_ARROW_TYPES)
+      .padStart(VOCAB_NUM_ARROW_DIRECTIONS);
+    const arr = [];
+    for (let i = 0; i < VOCAB_NUM_ARROW_DIRECTIONS; ++i) {
+      arr.push(Number(s[i]));
+    }
+    return arr;
+  }
+
+  function arrayToStep(arr) {
+    let s = "";
+    for (let i = 0; i < arr.length; ++i) {
+      s += String(arr[i]);
+    }
+    const step = parseInt(s, VOCAB_NUM_ARROW_TYPES) + 1;
+    if (step < VOCAB_NUM_SPECIAL || step >= VOCAB_SIZE) {
+      throw new Error("Invalid array");
+    }
+    return step;
+  }
+
+  function lstmLogits(state, lastStep, dtPrev, dtNext) {
+    if (selectionModelVars === null) {
+      throw new Error("Must call initialize method first");
+    }
+    if (lastStep < 0 || lastStep > 256) {
+      throw new Error("Invalid step");
+    }
+
+    const [finalState, logits] = tf.tidy(() => {
+      // Step features
+      const stepFeatsArr = new Float32Array(
+        VOCAB_NUM_SPECIAL + VOCAB_NUM_ARROW_DIRECTIONS * VOCAB_NUM_ARROW_TYPES
+      );
+      for (let i = 0; i < stepFeatsArr.length; ++i) {
+        stepFeatsArr[i] = 0;
+      }
+      if (lastStep === 0) {
+        stepFeatsArr[0] = 1;
+      } else {
+        const lastStepArr = stepToArray(lastStep);
+        for (let i = 0; i < VOCAB_NUM_ARROW_DIRECTIONS; ++i) {
+          stepFeatsArr[
+            VOCAB_NUM_SPECIAL + i * VOCAB_NUM_ARROW_TYPES + lastStepArr[i]
+          ] = 1;
+        }
+      }
+      const stepFeats = tf.tensor2d(
+        stepFeatsArr,
+        [1, stepFeatsArr.length],
+        "float32"
+      );
+
+      // Time features
+      const timeFeats = tf.tensor2d([dtPrev, dtNext], [1, 2], "float32");
+
+      // Project feats array through RNN input matrix
+      const a = tf.matMul(stepFeats, selectionModelVars["model_ss/rnn_proj/W"]);
+      const b = tf.matMul(
+        timeFeats,
+        selectionModelVars["model_ss/rnn_proj/nosym_W"]
+      );
+      let x = tf.add(a, b);
+      /*
+      let x = tf.matMul(
+        tf.concat([stepFeats, timeFeats], 1),
+        tf.concat(
+          [
+            selectionModelVars["model_ss/rnn_proj/W"],
+            selectionModelVars["model_ss/rnn_proj/nosym_W"]
+          ],
+          0
+        )
+      );
+      */
+      x = tf.add(x, selectionModelVars["model_ss/rnn_proj/b"]);
+
+      // Evaluate RNN
+      const [c, h] = tf.multiRNNCell(selectionLSTMCells, x, state.c, state.h);
+      const finalState = { c: c, h: h };
+
+      // Project to logits
+      x = tf.matMul(
+        h[RNN_NUM_LAYERS - 1],
+        selectionModelVars["model_ss/sym_rnn_output/softmax_w"]
+      );
+      const logits = tf.add(
+        x,
+        selectionModelVars["model_ss/sym_rnn_output/softmax_b"]
+      );
+
+      return [finalState, logits];
+    });
+
+    return [finalState, logits];
+  }
+
+  async function select(timestamps, difficulty) {
     if (selectionModelVars === null) {
       throw new Error("Must call initialize method first");
     }
 
-    const scores = tf.tidy(() => {});
+    const steps = tf.tidy(() => {
+      let state = createInitialState();
+      let lastStep = 0;
+      for (let i = 0; i < timestamps.length; ++i) {
+        const [finalState, logits] = lstmLogits(state, 0, 0, 0);
+        const probs = tf.softmax(logits);
+        disposeState(state);
+        state = finalState;
+      }
+      disposeState(state);
+    });
 
-    return scores;
+    return steps;
   }
+
+  ddc.stepSelection = {};
+  ddc.stepSelection.initialize = selectionInitialize;
+  ddc.stepSelection.dispose = selectionDispose;
+  ddc.stepSelection.select = select;
 
   ddc.choreograph = async audioUrl => {
     ddc.audioIO.loadFromUri();
@@ -442,4 +623,3 @@ async function transcribeFiles(fileList) {
   });
 
 */
-
