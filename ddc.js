@@ -15,6 +15,8 @@ github.com/chrisdonahue
 window.ddc = window.ddc || {};
 
 (function(ddc, AudioContext, tf) {
+  const DEBUG = false;
+
   /* Helper methods */
 
   async function retrieveVars(ckptDirUrl) {
@@ -43,9 +45,27 @@ window.ddc = window.ddc || {};
   async function loadFromUrl(uri) {
     const result = await fetch(uri, { method: "GET" });
     const buffer = await audioCtx.decodeAudioData(await result.arrayBuffer());
-    // TODO: Handle stereo data
-    // TODO: Resample
-    return buffer.getChannelData(0);
+
+    if (buffer.sampleRate !== 44100) {
+      // TODO: Resample
+      throw new Error("Invalid sample rate");
+    }
+
+    const monoAudio = new Float32Array(buffer.length);
+    for (let i = 0; i < buffer.length; ++i) {
+      monoAudio[i] = 0;
+    }
+    for (let ch = 0; ch < buffer.numberOfChannels; ++ch) {
+      const channel = buffer.getChannelData(ch);
+      for (let i = 0; i < buffer.length; ++i) {
+        monoAudio[i] += channel[i];
+      }
+    }
+    for (let i = 0; i < buffer.length; ++i) {
+      monoAudio[i] /= buffer.numberOfChannels;
+    }
+
+    return monoAudio;
   }
 
   ddc.audioIO = {};
@@ -56,13 +76,14 @@ window.ddc = window.ddc || {};
   /* Feature extraction module maps audio to spectrogram */
 
   const FFT_FRAME_LENGTHS = [1024, 2048, 4096];
-  const FFT_FRAME_STEP = 512;
+  const FFT_FRAME_STEP = 441;
+  const LOG_EPS = 1e-16;
 
   let featureModelVars = null;
 
   async function featureInitialize(ckptDirUrl) {
     if (featureModelVars !== null) {
-      await featureModelVars();
+      await featureDispose();
     }
     featureModelVars = await retrieveVars(ckptDirUrl);
   }
@@ -75,6 +96,10 @@ window.ddc = window.ddc || {};
   async function featureExtract(waveformArr) {
     if (featureModelVars === null) {
       throw new Error("Must call initialize method first");
+    }
+
+    if (DEBUG) {
+      return tf.ones([1, 80, 3], "float32");
     }
 
     const feats = tf.tidy(() => {
@@ -135,7 +160,7 @@ window.ddc = window.ddc || {};
 
         // Compute log mel spectrogram
         const logMelSpectrogram = tf.log(
-          tf.add(melSpectrogram, tf.scalar(1e-16, "float32"))
+          tf.add(melSpectrogram, tf.scalar(LOG_EPS, "float32"))
         );
 
         // Add feats to array
@@ -164,10 +189,6 @@ window.ddc = window.ddc || {};
       // Stack features from different frame lengths as "channels"
       feats = tf.stack(feats, 2);
 
-      // Normalize features to have zero mean and unit variance
-      feats = tf.sub(feats, featureModelVars["feats_mean"]);
-      feats = tf.div(feats, featureModelVars["feats_std"]);
-
       return feats;
     });
 
@@ -180,6 +201,15 @@ window.ddc = window.ddc || {};
   ddc.featureExtraction.extract = featureExtract;
 
   /* Step placement module maps spectrogram to events */
+
+  const DIFFICULTY = {
+    BEGINNER: 0,
+    EASY: 1,
+    MEDIUM: 2,
+    HARD: 3,
+    CHALLENGE: 4
+  };
+  const FEATURE_CONTEXT_RADIUS = 7;
 
   let placementModelVars = null;
 
@@ -195,11 +225,128 @@ window.ddc = window.ddc || {};
     placementModelVars = null;
   }
 
+  async function place(feats, difficulty) {
+    if (placementModelVars === null) {
+      throw new Error("Must call initialize method first");
+    }
+    if (
+      feats.shape.length !== 3 ||
+      feats.shape[1] !== 80 ||
+      feats.shape[2] !== 3
+    ) {
+      throw new Error("Invalid feature dimensions");
+    }
+    if (difficulty < 0 || difficulty > 4) {
+      throw new Error("Invalid difficulty specified");
+    }
+
+    const scores = tf.tidy(() => {
+      // Normalize features to have zero mean and unit variance
+      let featsNormalized = tf.sub(feats, placementModelVars["feats_mean"]);
+      featsNormalized = tf.div(
+        featsNormalized,
+        placementModelVars["feats_std"]
+      );
+
+      // Pad features to make context slices
+      const featsPadded = tf.pad(featsNormalized, [
+        [FEATURE_CONTEXT_RADIUS, FEATURE_CONTEXT_RADIUS],
+        [0, 0],
+        [0, 0]
+      ]);
+
+      // Construct one-hot tensor from difficulty
+      const difficultyOneHot = tf.expandDims(
+        tf.cast(tf.oneHot(tf.scalar(difficulty, "int32"), 5), "float32"),
+        0
+      );
+
+      let scores = [];
+      for (let i = 0; i < feats.shape[0]; ++i) {
+        // TODO: Batch
+
+        // Create slice of spectrogram
+        let x = tf.slice(
+          featsPadded,
+          [i, 0, 0],
+          [FEATURE_CONTEXT_RADIUS * 2 + 1, feats.shape[1], feats.shape[2]]
+        );
+        x = x.expandDims(0);
+
+        // Conv 0
+        x = tf.conv2d(
+          x,
+          placementModelVars["model_sp/cnn_0/filters"],
+          [1, 1],
+          "valid"
+        );
+        x = tf.add(x, placementModelVars["model_sp/cnn_0/biases"]);
+        x = tf.relu(x);
+        x = tf.maxPool(x, [1, 3], [1, 3], "same");
+
+        // Conv 1
+        x = tf.conv2d(
+          x,
+          placementModelVars["model_sp/cnn_1/filters"],
+          [1, 1],
+          "valid"
+        );
+        x = tf.add(x, placementModelVars["model_sp/cnn_1/biases"]);
+        x = tf.relu(x);
+        x = tf.maxPool(x, [1, 3], [1, 3], "same");
+
+        // Concat difficulty
+        x = tf.reshape(x, [1, -1]);
+        x = tf.concat([x, difficultyOneHot], 1);
+
+        // Dense 0
+        x = tf.matMul(x, placementModelVars["model_sp/dnn_0/W"]);
+        x = tf.add(x, placementModelVars["model_sp/dnn_0/b"]);
+        x = tf.relu(x);
+
+        // Dense 1
+        x = tf.matMul(x, placementModelVars["model_sp/dnn_1/W"]);
+        x = tf.add(x, placementModelVars["model_sp/dnn_1/b"]);
+        x = tf.relu(x);
+
+        // Output
+        x = tf.matMul(x, placementModelVars["model_sp/logit/W"]);
+        x = tf.add(x, placementModelVars["model_sp/logit/b"]);
+        x = tf.sigmoid(x);
+        x = tf.reshape(x, [1]);
+
+        scores.push(x);
+      }
+
+      scores = tf.concat(scores, 0);
+
+      return scores;
+    });
+
+    return scores;
+  }
+
   ddc.stepPlacement = {};
   ddc.stepPlacement.initialize = placementInitialize;
   ddc.stepPlacement.dispose = placementDispose;
+  ddc.stepPlacement.place = place;
+  ddc.stepPlacement.difficulty = DIFFICULTY;
 
   /* Step selection module maps timestamped events to choreography */
+
+  let selectionModelVars = null;
+
+  async function selectionInitialize(ckptDirUrl) {
+    if (selectionModelVars !== null) {
+      await selectionDispose();
+    }
+    selectionModelVars = await retrieveVars(ckptDirUrl);
+  }
+
+  async function selectionDispose() {
+    await dispose(selectionModelVars);
+    selectionModelVars = null;
+  }
 
   /*
     this.decLSTMCells = [];
@@ -229,11 +376,20 @@ window.ddc = window.ddc || {};
     }
     */
 
+  async function select(feats) {
+    if (selectionModelVars === null) {
+      throw new Error("Must call initialize method first");
+    }
+
+    const scores = tf.tidy(() => {});
+
+    return scores;
+  }
+
   ddc.choreograph = async audioUrl => {
     ddc.audioIO.loadFromUri();
   };
 })(window.ddc, window.AudioContext || window.webkitAudioContext, window.tf);
-
 
 /*
 const model = new mm.OnsetsAndFrames(
