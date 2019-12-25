@@ -326,11 +326,36 @@ window.ddc = window.ddc || {};
     return scores;
   }
 
+  async function findPeaks(scores) {
+    const peaks = tf.tidy(() => {
+      const window = tf.signal.hammingWindow(5);
+      let smoothedScores = tf.conv1d(
+        tf.reshape(scores, [-1, 1]),
+        tf.reshape(window, [-1, 1, 1]),
+        1,
+        "same"
+      );
+      smoothedScores = smoothedScores.dataSync();
+      const peaks = [];
+      for (let i = 0; i < smoothedScores.length; ++i) {
+        const l = i === 0 ? 0 : smoothedScores[i - 1];
+        const c = smoothedScores[i];
+        const r = i === smoothedScores.length - 1 ? 0 : smoothedScores[i + 1];
+        if (c >= l && c >= r) {
+          peaks.push(i);
+        }
+      }
+      return peaks;
+    });
+    return peaks;
+  }
+
   ddc.stepPlacement = {};
+  ddc.stepPlacement.difficulty = DIFFICULTY;
   ddc.stepPlacement.initialize = placementInitialize;
   ddc.stepPlacement.dispose = placementDispose;
   ddc.stepPlacement.place = place;
-  ddc.stepPlacement.difficulty = DIFFICULTY;
+  ddc.stepPlacement.findPeaks = findPeaks;
 
   /* Step selection module maps timestamped events to choreography */
 
@@ -417,3 +442,4 @@ async function transcribeFiles(fileList) {
   });
 
 */
+

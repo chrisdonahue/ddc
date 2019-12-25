@@ -13,14 +13,18 @@
     await ddc.featureExtraction.initialize(FEATURE_DIR);
     const features = await ddc.featureExtraction.extract(audio);
 
-    console.log("Placing steps");
+    console.log("Scoring audio");
     await ddc.stepPlacement.initialize(PLACEMENT_DIR);
     const placementScores = await ddc.stepPlacement.place(
       features,
       ddc.stepPlacement.difficulty.MEDIUM
     );
-    //console.log(placementScores);
-    console.log(placementScores.dataSync());
+    //console.log(placementScores.dataSync());
+    
+    console.log("Finding peaks");
+    const peaks = await ddc.stepPlacement.findPeaks(
+      placementScores);
+    console.log(peaks);
 
     console.log("Selecting steps");
 
@@ -30,3 +34,4 @@
 
   init();
 })(window.ddc);
+
