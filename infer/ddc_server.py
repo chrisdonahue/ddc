@@ -14,7 +14,7 @@ from sym_net import SymNet
 from util import apply_z_norm, make_onset_feature_context
 from extract_feats import extract_mel_feats
 
-def load_sp_model(sp_ckpt_fp, batch_size=128):
+def load_sp_model(sp_ckpt_fp, sess, batch_size=128):
     with tf.variable_scope('model_sp'):
         model_sp = OnsetNet(
             mode='gen',
@@ -47,7 +47,7 @@ def load_sp_model(sp_ckpt_fp, batch_size=128):
     saver.restore(sess, sp_ckpt_fp)
     return model_sp
 
-def load_ss_model(ss_ckpt_fp):
+def load_ss_model(ss_ckpt_fp, sess):
     with tf.variable_scope('model_ss'):
         model_ss = SymNet(
             mode='gen',
@@ -89,7 +89,7 @@ _DIFFS = ['Beginner', 'Easy', 'Medium', 'Hard', 'Challenge']
 _DIFF_TO_COARSE_FINE_AND_THRESHOLD = {
     'Beginner':     (0, 1, 0.15325437),
     'Easy':         (1, 3, 0.23268291),
-    'Medium':       (2, 5, 0.29456162),
+    'Medium':         (2, 5, 0.29456162),
     'Hard':         (3, 7, 0.29084727),
     'Challenge':    (4, 9, 0.28875697)
 }
@@ -132,6 +132,7 @@ def create_chart_dir(
         artist, title,
         audio_fp,
         norm, analyzers,
+        sess,
         sp_model, sp_batch_size, diffs,
         ss_model, idx_to_label,
         out_dir, delete_audio=False):
@@ -235,7 +236,7 @@ def create_chart_dir(
 
     print 'Creating SM'
     out_dir_name = os.path.split(out_dir)[1]
-    audio_out_name = out_dir_name + os.path.splitext(audio_fp)[1]
+    audio_out_name = os.path.split(audio_fp)[1]
     sm_txt = _TEMPL.format(
         title=title,
         artist=artist,
@@ -245,9 +246,11 @@ def create_chart_dir(
 
     print 'Saving to {}'.format(out_dir)
     try:
-        os.mkdir(out_dir)
-        audio_ext = os.path.splitext(audio_fp)[1]
-        shutil.copyfile(audio_fp, os.path.join(out_dir, audio_out_name))
+        if not os.path.isdir(out_dir):
+            os.mkdir(out_dir)
+        audio_out_fp = os.path.join(out_dir, audio_out_name)
+        if not os.path.exists(audio_out_fp):
+            shutil.copyfile(audio_fp, audio_out_fp)
         with open(os.path.join(out_dir, out_dir_name + '.sm'), 'w') as f:
             f.write(sm_txt)
     except:
@@ -261,12 +264,101 @@ def create_chart_dir(
 
     return True
 
+
+import tempfile
+
+from flask import Flask, jsonify, request, send_from_directory, send_file
+
+_FRONTEND_DIST_DIR = 'frontend'
+app = Flask(
+    __name__,
+    static_url_path='',
+    static_folder=_FRONTEND_DIST_DIR)
+
+
+@app.route('/')
+def index():
+    return send_from_directory(_FRONTEND_DIST_DIR, 'index.html')
+
+
+@app.route('/choreograph', methods=['POST'])
+def choreograph():
+    uploaded_file = request.files.get('audio_file')
+    if uploaded_file is None or len(uploaded_file.filename) == 0:
+        return 'Audio file required', 400
+    try:
+        uploaded_file_ext = os.path.splitext(uploaded_file.filename)[1]
+    except:
+        uploaded_file_ext = ''
+
+    song_artist = request.form.get('song_artist', '')[:1024]
+    song_title = request.form.get('song_title', '')[:1024]
+    diff_coarse = request.form.get('diff_coarse')
+    if diff_coarse is None:
+        return 'Need to specify difficulty', 400
+    if diff_coarse not in _DIFFS:
+        return 'Invalid difficulty specified', 400
+
+    out_dir = tempfile.mkdtemp()
+    with tempfile.NamedTemporaryFile(suffix='.zip') as z:
+        song_id = uuid.uuid4()
+
+        song_fp = os.path.join(out_dir, '{}{}'.format(str(song_id), uploaded_file_ext))
+        uploaded_file.save(song_fp)
+
+        try:
+            create_chart_dir(
+                song_artist, song_title,
+                song_fp,
+                NORM, ANALYZERS,
+                SESS,
+                SP_MODEL, ARGS.sp_batch_size,
+                [diff_coarse],
+                SS_MODEL, IDX_TO_LABEL,
+                out_dir)
+        except CreateChartException as e:
+            if str(e).startswith('Invalid audio file'):
+                return 'Invalid audio file', 400
+            shutil.rmtree(out_dir)
+            print e
+            return 'Unknown error', 500
+        except Exception as e:
+            shutil.rmtree(out_dir)
+            print e
+            return 'Unknown error', 500
+
+        print 'Creating zip {}'.format(z.name)
+        with zipfile.ZipFile(z.name, 'w', zipfile.ZIP_DEFLATED) as f:
+            for fn in os.listdir(out_dir):
+                f.write(
+                    os.path.join(out_dir, fn),
+                    os.path.join(
+                        _PACK_NAME,
+                        str(song_id),
+                        '{}{}'.format(str(song_id), os.path.splitext(fn)[1])))
+
+        shutil.rmtree(out_dir)
+
+        return send_file(
+                z.name,
+                as_attachment=True,
+                attachment_filename='{}.zip'.format(song_id))
+
+
+@app.after_request
+def add_header(r):
+    r.headers['Access-Control-Allow-Origin'] = '*'
+    r.headers['Access-Control-Allow-Headers'] = '*'
+    r.headers['Access-Control-Allow-Methods'] = '*'
+    r.headers['Access-Control-Expose-Headers'] = '*'
+    return r
+
+
 if __name__ == '__main__':
     import argparse as argparse
     import cPickle as pickle
     import os
     import uuid
-    from SimpleXMLRPCServer import SimpleXMLRPCServer
     import zipfile
 
     from extract_feats import create_analyzers
@@ -277,69 +369,50 @@ if __name__ == '__main__':
     parser.add_argument('--ss_ckpt_fp', type=str)
     parser.add_argument('--labels_txt_fp', type=str)
     parser.add_argument('--sp_batch_size', type=int)
-    parser.add_argument('--out_dir', type=str)
-    parser.add_argument('--port', type=int)
+    parser.add_argument('--max_file_size', type=int)
 
     parser.set_defaults(
+        norm_pkl_fp='server_aux/norm.pkl',
+        sp_ckpt_fp='server_aux/model_sp-56000',
+        ss_ckpt_fp='server_aux/model_ss-23628',
+        labels_txt_fp='server_aux/labels_4_0123.txt',
         sp_batch_size=256,
-        port=13337,
+        max_file_size=None,
     )
 
-    args = parser.parse_args()
+    global ARGS
+    ARGS = parser.parse_args()
 
+    global SESS
+    graph = tf.Graph()
     config = tf.ConfigProto()
     config.log_device_placement = True
     config.allow_soft_placement = True
     config.gpu_options.allow_growth = True
     #config.gpu_options.per_process_gpu_memory_fraction = 1.0
+    SESS = tf.Session(graph=graph, config=config)
 
-    if not os.path.isdir(args.out_dir):
-      os.makedirs(args.out_dir)
+    global NORM
+    print 'Loading band norms'
+    with open(ARGS.norm_pkl_fp, 'rb') as f:
+        NORM = pickle.load(f)
 
-    with tf.Graph().as_default(), tf.Session(config=config).as_default() as sess:
-        print 'Loading band norms'
-        with open(args.norm_pkl_fp, 'rb') as f:
-            norm = pickle.load(f)
+    global ANALYZERS
+    print 'Creating Mel analyzers'
+    ANALYZERS = create_analyzers(nhop=441)
 
-        print 'Creating Mel analyzers'
-        analyzers = create_analyzers(nhop=441)
+    global IDX_TO_LABEL
+    print 'Loading labels'
+    with open(ARGS.labels_txt_fp, 'r') as f:
+        IDX_TO_LABEL = {i + 1:l for i, l in enumerate(f.read().splitlines())}
 
-        print 'Loading labels'
-        with open(args.labels_txt_fp, 'r') as f:
-            idx_to_label = {i + 1:l for i, l in enumerate(f.read().splitlines())}
-
+    global SP_MODEL, SS_MODEL
+    with graph.as_default():
         print 'Loading step placement model'
-        sp_model = load_sp_model(args.sp_ckpt_fp, args.sp_batch_size)
+        SP_MODEL = load_sp_model(ARGS.sp_ckpt_fp, SESS, ARGS.sp_batch_size)
         print 'Loading step selection model'
-        ss_model = load_ss_model(args.ss_ckpt_fp)
+        SS_MODEL = load_ss_model(ARGS.ss_ckpt_fp, SESS)
 
-        def create_chart_closure(artist, title, audio_fp, diffs):
-            song_id = uuid.uuid4()
-
-            out_dir = os.path.join(args.out_dir, str(song_id))
-            try:
-                create_chart_dir(
-                    artist, title,
-                    audio_fp,
-                    norm, analyzers,
-                    sp_model, args.sp_batch_size, diffs,
-                    ss_model, idx_to_label,
-                    out_dir)
-            except CreateChartException as e:
-                raise e
-            except Exception as e:
-                raise CreateChartException('Unknown chart creation exception')
-
-            out_zip_fp = os.path.join(args.out_dir, str(song_id) + '.zip')
-            print out_zip_fp
-            print 'Creating zip {}'.format(out_zip_fp)
-            with zipfile.ZipFile(out_zip_fp, 'w', zipfile.ZIP_DEFLATED) as f:
-                for fn in os.listdir(out_dir):
-                    f.write(os.path.join(out_dir, fn), os.path.join(_PACK_NAME, str(song_id), fn))
-
-            return os.path.abspath(out_zip_fp)
-
-        print 'Waiting for RPCs on port {}'.format(args.port)
-        server = SimpleXMLRPCServer(('localhost', args.port))
-        server.register_function(create_chart_closure, 'create_chart')
-        server.serve_forever()
+    if ARGS.max_file_size is not None:
+        app.config['MAX_CONTENT_LENGTH'] = ARGS.max_file_size
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 80)))
