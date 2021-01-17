@@ -40,3 +40,5 @@ WORKDIR /ddc
 COPY *.py ./
 COPY server_aux server_aux/
 COPY frontend frontend/
+
+ENTRYPOINT ["python", "ddc_server.py"]
