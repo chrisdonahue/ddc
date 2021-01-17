@@ -1,0 +1,121 @@
+<html>
+<head>
+	<title>Dance Dance Convolution</title>
+	<meta name="author" content="Chris Donahue">
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+
+<body>
+
+<div id="content">
+<h1>Dance Dance Convolution</h1>
+
+
+<form id="choreograph-form" action="/choreograph" method="POST" enctype="multipart/form-data">
+	<label>Audio file (16MB max)</label>
+	<input type="file" name="audio_file" accept=".mp3,.ogg,.aiff,.wav"/>
+	<br/>
+	<label>Artist</label><input type="text" name="song_artist"/>
+	<br/>
+	<label>Title</label><input type="text" name="song_title"/>
+	<br/>
+	<input type="radio" name="diff_coarse" value="Beginner"/><label>Beginner</label>
+	<input type="radio" name="diff_coarse" value="Easy"/><label>Easy</label>
+	<input type="radio" name="diff_coarse" value="Medium"/><label>Medium</label>
+	<input type="radio" name="diff_coarse" value="Hard"/><label>Hard</label>
+	<input type="radio" name="diff_coarse" value="Challenge"/><label>Challenge</label>
+	<br/>
+	<input id="choreograph-submit" type="submit"/>
+  <span id="choreograph-loading" style="display:none">Please wait while we choreograph your song...</span>
+</form>
+
+<h2>Instructions</h2>
+<ul>
+	<li>Install <a href="https://www.stepmania.com/download/">Stepmania 5</a></li>
+	<li>Create stepchart for an audio file using above form</li>
+	<li>Extract .zip to "Songs" directory in StepMania 5 install folder. ("C:\Program Files (x86)\StepMania 5\Songs" on Windows)</li>
+	<li>Restart Stepmania or select "Reload Songs/Courses" under "Options"</li>
+</ul>
+
+<h2>Feedback</h2>
+
+<iframe src="https://docs.google.com/forms/d/e/1FAIpQLScR8SISl_ZhI42h1HBZ2wCQlOVDVL1XQzwL7p-JBx46eOfHOw/viewform?embedded=true" width="640" height="480" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>
+
+<h2>FAQ</h2>
+<h3>How does this work?</h3>
+<p>Dance Dance Convolution (DDC) uses two neural networks to create step charts. One network predicts timing of the steps from the audio and another network creates sequences of arrows from the timings. You can read more details in <a href="https://arxiv.org/abs/1703.06891">the paper</a> (<a href="https://arxiv.org/pdf/1703.06891.pdf">pdf</a>).</p>
+
+<h3>Why is everything at 125BPM?</h3>
+The network that predicts step timings has no concept of rhythm or tempo. It simply answers the following question 100 times a second: should there be a step here? We map these to step charts by creating measures with 192 steps at 125BPM. We will release a script soon allowing you to manually set the tempo/offset of a chart to clean things up a little. For now, turn off colored note skins to avoid confusion.
+
+<h3>What kind of music does it work for?</h3>
+DDC will produce a step chart for any kind of music but it works best for electronic or highly percussive music. The most interesting charts are produced by music that has significant rhythmic variety.
+
+<h3>Will I get a different chart if I upload the same song twice?</h3>
+Yes. The timings and number of steps will be the same but the sequence will be completely different.
+
+<h3>Why do the lower difficulties not work as well?</h3>
+It turns out that lower difficulty step charts are harder to learn! This will hopefully be improved in future versions.
+
+<h3>Who made this?</h3>
+A group of researchers from the University of California, San Diego. Please send us feedback on your experience using the above form! Feedback will be used to improve future versions of Dance Dance Convolution.
+
+<h2>Acknowledgements</h2>
+Thanks to <a href="https://fra.xtil.net">Fraxtil</a> whose <a href="https://fra.xtil.net/simfiles/">step charts</a> were used to train the neural network models for this demo. Thanks to <a href="http://deepx.ucsd.edu">DeepX</a> for hosting. This work used the Extreme Science and Engineering Discovery Environment (XSEDE), which is supported by National Science Foundation grant number ACI-1053575.
+
+</div>
+  
+<script>
+(function() {
+  var CSR_API_URL = null;
+
+  var formEl = document.getElementById("choreograph-form");
+  var submitEl = document.getElementById("choreograph-submit");
+  var loadingEl = document.getElementById("choreograph-loading");
+  formEl.addEventListener("submit", function(evt) {
+    var formData = new FormData(formEl);
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", CSR_API_URL === null ? "/choreograph" : CSR_API_URL, true);
+    xhr.responseType = "blob";
+    xhr.onload = function(oevt) {
+      if (xhr.status === 200) {
+        var blob = xhr.response;
+        var contentDispo = xhr.getResponseHeader("Content-Disposition");
+        // https://stackoverflow.com/a/23054920/
+        var fileName = contentDispo.match(
+          /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+        )[1];
+        var a = document.createElement("a");
+        a.style = "display: none";
+        document.body.appendChild(a);
+        var url = window.URL.createObjectURL(blob);
+        a.href = url;
+        a.download = fileName;
+        a.dispatchEvent(new MouseEvent("click"));
+        window.URL.revokeObjectURL(url);
+      } else if (xhr.status === 400) {
+        xhr.response.text().then(function(t) {
+          alert(t);
+        });
+      } else {
+        alert('Unknown error');
+      }
+      submitEl.style.display = "block";
+      loadingEl.style.display = "none";
+    };
+    xhr.onerror = function(oevt) {
+      alert("Unknown error");
+      submitEl.style.display = "block";
+      loadingEl.style.display = "none";
+    };
+    submitEl.style.display = "none";
+    loadingEl.style.display = "block";
+    xhr.send(formData);
+    evt.preventDefault();
+  });
+})();
+</script>
+
+</body>
+
+</html>
