@@ -6,7 +6,7 @@ Dance Dance Convolution is an automatic choreography system for Dance Dance Revo
     <img src="docs/fig1.png" width="650px"/>
 </p>
 
-This repository contains the code used to produce the dataset and results in the [Dance Dance Convolution paper](https://arxiv.org/abs/1703.06891). You can find a live demo of our system [here](http://deepx.ucsd.edu/ddc) as well as an example [video](https://www.youtube.com/watch?v=yUc3O237p9M).
+This repository contains the code used to produce the dataset and results in the [Dance Dance Convolution paper](https://arxiv.org/abs/1703.06891). You can find a live demo of our system [here](https://ddc.chrisdonahue.com) as well as an example [video](https://www.youtube.com/watch?v=yUc3O237p9M).
 
 The `Fraxtil` and `In The Groove` datasets from the paper are amalgamations of three and two StepMania "packs" respectively. Instructions for downloading these packs and building the datasets can be found below.
 
