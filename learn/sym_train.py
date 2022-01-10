@@ -196,7 +196,6 @@ def main(_):
     # Create model config
     rnn_proj_init = tf.constant_initializer(0.0, dtype=dtype) if FLAGS.sym_rnn_pretrain_model_ckpt_fp else tf.uniform_unit_scaling_initializer(factor=1.0, dtype=dtype)
     model_config = {
-        'nunroll': FLAGS.nunroll,
         'sym_in_type': FLAGS.sym_in_type,
         'sym_embedding_size': FLAGS.sym_embedding_size,
         'sym_out_type': FLAGS.sym_out_type,
